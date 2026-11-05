@@ -8,10 +8,11 @@ Personal hypertrophy workout tracker — an iPhone-first Progressive Web App. No
 
 - 10-week, four-day upper/lower program (fully editable)
 - Workout logging with warm-ups, RIR, rest timer, pause/resume, crash recovery
+- Cardio / running layer (Easy Run, Intervals, Zone 2, Bike, Row) with live timer or quick log, distance/time/effort, IndexedDB persistence
 - Double-progression suggestions from real history only
 - Searchable exercise library with cues, alternatives, and custom exercises
-- Progress charts (volume, strength e1RM estimates, muscle volume, consistency, PRs)
-- Optional readiness check-ins (not medical advice)
+- Progress charts (volume, strength e1RM estimates, muscle volume, consistency, PRs, cardio)
+- Historical readiness chart (not medical advice; no pre-workout readiness popup)
 - JSON export/import with validation
 - Installable PWA (Safari Add to Home Screen)
 

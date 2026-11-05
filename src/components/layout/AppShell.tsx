@@ -5,7 +5,8 @@ import { UpdatePrompt } from '../system/UpdatePrompt'
 
 export function AppShell() {
   const location = useLocation()
-  const hideNav = location.pathname.startsWith('/workout/')
+  const hideNav =
+    location.pathname.startsWith('/workout/') || location.pathname.startsWith('/cardio/')
 
   return (
     <div className="relative mx-auto min-h-full max-w-lg bg-bg">

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useSearchParams } from 'react-router-dom'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -19,17 +20,37 @@ import { useSettings } from '@/hooks/useSettings'
 import { workingSetVolume, workingSetCount, aggregateMuscleVolume } from '@/lib/volume'
 import { bestE1rmEstimate } from '@/lib/e1rm'
 import { formatWeight } from '@/lib/units'
+import { formatDistance, formatDuration, metersToDisplay } from '@/lib/cardio'
 import { Card } from '@/components/ui/Card'
 import { readinessScore } from '@/lib/readiness'
 import type { MuscleGroup } from '@/db/types'
 
-type Tab = 'volume' | 'strength' | 'muscle' | 'consistency' | 'prs' | 'readiness'
+type Tab = 'volume' | 'strength' | 'muscle' | 'consistency' | 'prs' | 'cardio' | 'readiness'
+
+const TAB_IDS: Tab[] = [
+  'volume',
+  'strength',
+  'muscle',
+  'consistency',
+  'prs',
+  'cardio',
+  'readiness',
+]
 
 export function ProgressPage() {
   const settings = useSettings()
   const unit = settings?.weightUnit ?? 'lb'
-  const [tab, setTab] = useState<Tab>('volume')
+  const [params, setParams] = useSearchParams()
+  const tabParam = params.get('tab')
+  const tab: Tab = TAB_IDS.includes(tabParam as Tab) ? (tabParam as Tab) : 'volume'
   const [exerciseFilter, setExerciseFilter] = useState<number | 'all'>('all')
+
+  function setTab(next: Tab) {
+    const nextParams = new URLSearchParams(params)
+    if (next === 'volume') nextParams.delete('tab')
+    else nextParams.set('tab', next)
+    setParams(nextParams, { replace: true })
+  }
 
   const exercises = useLiveQuery(() => db.exercises.orderBy('name').toArray())
   const sessions = useLiveQuery(() =>
@@ -45,6 +66,9 @@ export function ProgressPage() {
     )
   })
   const readiness = useLiveQuery(() => db.readinessEntries.orderBy('date').toArray())
+  const cardioSessions = useLiveQuery(() =>
+    db.cardioSessions.where('status').equals('completed').toArray(),
+  )
 
   const chartData = useLiveQuery(async () => {
     const completed = await db.workoutSessions.where('status').equals('completed').toArray()
@@ -132,10 +156,12 @@ export function ProgressPage() {
     { id: 'muscle', label: 'Muscles' },
     { id: 'consistency', label: 'Consistency' },
     { id: 'prs', label: 'PRs' },
+    { id: 'cardio', label: 'Cardio' },
     { id: 'readiness', label: 'Readiness' },
   ]
 
   const empty = !sessions || sessions.length === 0
+  const cardioEmpty = !cardioSessions || cardioSessions.length === 0
 
   const readinessTrend = useMemo(
     () =>
@@ -145,6 +171,37 @@ export function ProgressPage() {
       })),
     [readiness],
   )
+
+  const cardioTrend = useMemo(() => {
+    const weekMap = new Map<string, { minutes: number; miles: number; sessions: number }>()
+    for (const s of cardioSessions ?? []) {
+      if (!s.completedAt) continue
+      const weekKey = format(
+        startOfWeek(parseISO(s.completedAt), { weekStartsOn: 1 }),
+        'yyyy-MM-dd',
+      )
+      const row = weekMap.get(weekKey) ?? { minutes: 0, miles: 0, sessions: 0 }
+      row.minutes += s.durationSeconds / 60
+      row.miles += s.distanceMeters != null ? metersToDisplay(s.distanceMeters, 'mi') : 0
+      row.sessions += 1
+      weekMap.set(weekKey, row)
+    }
+    return Array.from(weekMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([week, v]) => ({
+        week: format(parseISO(week), 'MMM d'),
+        minutes: Math.round(v.minutes),
+        miles: Math.round(v.miles * 10) / 10,
+        sessions: v.sessions,
+      }))
+  }, [cardioSessions])
+
+  const recentCardioList = useMemo(() => {
+    return (cardioSessions ?? [])
+      .filter((s) => s.completedAt)
+      .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
+      .slice(0, 12)
+  }, [cardioSessions])
 
   return (
     <div className="px-4 pt-4 animate-fade-up">
@@ -189,7 +246,7 @@ export function ProgressPage() {
         ))}
       </div>
 
-      {empty && tab !== 'readiness' && (
+      {empty && tab !== 'readiness' && tab !== 'cardio' && (
         <Card>
           <p className="font-display text-lg font-bold">No data yet</p>
           <p className="mt-1 text-sm text-muted">
@@ -353,10 +410,92 @@ export function ProgressPage() {
         </div>
       )}
 
+      {tab === 'cardio' && (
+        <div className="space-y-3">
+          {cardioEmpty ? (
+            <Card>
+              <p className="font-display text-lg font-bold">No cardio yet</p>
+              <p className="mt-1 text-sm text-muted">
+                Start or log a run, bike, or row from Train → Cardio. Charts stay empty until then.
+              </p>
+            </Card>
+          ) : (
+            <>
+              <Card>
+                <p className="mb-3 text-sm font-semibold text-muted">Cardio by week</p>
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={cardioTrend}>
+                      <defs>
+                        <linearGradient id="cardioMin" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#FF7433" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#FF7433" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="#2a2e36" strokeDasharray="3 3" />
+                      <XAxis dataKey="week" stroke="#8b919a" fontSize={11} />
+                      <YAxis stroke="#8b919a" fontSize={11} />
+                      <Tooltip
+                        contentStyle={{ background: '#1C1F24', border: '1px solid #2a2e36' }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="minutes"
+                        stroke="#FF7433"
+                        fill="url(#cardioMin)"
+                        name="Minutes"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-4 h-40">
+                  <p className="mb-2 text-sm font-semibold text-muted">Distance (mi) / week</p>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={cardioTrend}>
+                      <CartesianGrid stroke="#2a2e36" strokeDasharray="3 3" />
+                      <XAxis dataKey="week" stroke="#8b919a" fontSize={11} />
+                      <YAxis stroke="#8b919a" fontSize={11} />
+                      <Tooltip
+                        contentStyle={{ background: '#1C1F24', border: '1px solid #2a2e36' }}
+                      />
+                      <Bar dataKey="miles" fill="#FF7433" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+              <div className="space-y-2">
+                {recentCardioList.map((s) => (
+                  <Card key={s.id} className="!py-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">{s.title}</p>
+                        <p className="text-xs text-muted">
+                          {s.completedAt
+                            ? format(parseISO(s.completedAt), 'MMM d, yyyy')
+                            : '—'}{' '}
+                          · {formatDuration(s.durationSeconds)}
+                          {s.effort != null ? ` · Effort ${s.effort}/10` : ''}
+                        </p>
+                      </div>
+                      <p className="font-display text-base font-bold text-accent">
+                        {formatDistance(s.distanceMeters, 'mi')}
+                      </p>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {tab === 'readiness' && (
         <Card>
           <p className="mb-1 text-sm font-semibold text-muted">Readiness trends</p>
-          <p className="mb-3 text-xs text-muted">Not medical advice.</p>
+          <p className="mb-3 text-xs text-muted">
+            Historical check-ins only · not medical advice. Pre-workout readiness prompts were
+            removed.
+          </p>
           {(readinessTrend.length === 0 && (
             <p className="text-sm text-muted">No readiness check-ins yet.</p>
           )) || (

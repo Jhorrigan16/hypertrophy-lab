@@ -12,9 +12,12 @@ import type {
   ReadinessEntry,
   UserSettings,
   AppMeta,
+  CardioActivityType,
+  CardioSession,
 } from '@/db/types'
+import { ensureCardioSeeded } from './cardio'
 
-export const BACKUP_VERSION = 1
+export const BACKUP_VERSION = 2
 
 export interface BackupPayload {
   version: number
@@ -32,6 +35,8 @@ export interface BackupPayload {
   readinessEntries: ReadinessEntry[]
   userSettings: UserSettings[]
   appMeta: AppMeta[]
+  cardioActivityTypes?: CardioActivityType[]
+  cardioSessions?: CardioSession[]
 }
 
 export interface ValidationResult {
@@ -80,6 +85,14 @@ export function validateBackup(data: unknown): ValidationResult {
     }
   }
 
+  // Cardio tables are optional for v1 backups
+  if (obj.cardioActivityTypes != null && !Array.isArray(obj.cardioActivityTypes)) {
+    errors.push('cardioActivityTypes must be an array when present.')
+  }
+  if (obj.cardioSessions != null && !Array.isArray(obj.cardioSessions)) {
+    errors.push('cardioSessions must be an array when present.')
+  }
+
   if (Array.isArray(obj.userSettings) && obj.userSettings.length > 0) {
     const s = obj.userSettings[0] as Record<string, unknown>
     if (s.weightUnit !== 'lb' && s.weightUnit !== 'kg') {
@@ -118,6 +131,8 @@ export async function exportBackup(): Promise<BackupPayload> {
     readinessEntries,
     userSettings,
     appMeta,
+    cardioActivityTypes,
+    cardioSessions,
   ] = await Promise.all([
     db.exercises.toArray(),
     db.workoutTemplates.toArray(),
@@ -131,6 +146,8 @@ export async function exportBackup(): Promise<BackupPayload> {
     db.readinessEntries.toArray(),
     db.userSettings.toArray(),
     db.appMeta.toArray(),
+    db.cardioActivityTypes.toArray(),
+    db.cardioSessions.toArray(),
   ])
 
   // Strip blobs from exercises for JSON portability
@@ -152,6 +169,8 @@ export async function exportBackup(): Promise<BackupPayload> {
     readinessEntries,
     userSettings,
     appMeta,
+    cardioActivityTypes,
+    cardioSessions,
   }
 }
 
@@ -176,6 +195,8 @@ export async function importBackup(data: unknown): Promise<ValidationResult> {
       db.readinessEntries,
       db.userSettings,
       db.appMeta,
+      db.cardioActivityTypes,
+      db.cardioSessions,
     ],
     async () => {
       await Promise.all([
@@ -191,6 +212,8 @@ export async function importBackup(data: unknown): Promise<ValidationResult> {
         db.readinessEntries.clear(),
         db.userSettings.clear(),
         db.appMeta.clear(),
+        db.cardioActivityTypes.clear(),
+        db.cardioSessions.clear(),
       ])
 
       // Preserve IDs when present for referential integrity across tables
@@ -206,8 +229,14 @@ export async function importBackup(data: unknown): Promise<ValidationResult> {
       await replaceTable(db.readinessEntries, payload.readinessEntries)
       await replaceTable(db.userSettings, payload.userSettings)
       await replaceTable(db.appMeta, payload.appMeta ?? [])
+      await replaceTable(db.cardioActivityTypes, payload.cardioActivityTypes ?? [])
+      await replaceTable(db.cardioSessions, payload.cardioSessions ?? [])
     },
   )
+
+  if ((payload.cardioActivityTypes?.length ?? 0) === 0) {
+    await ensureCardioSeeded()
+  }
 
   return validation
 }

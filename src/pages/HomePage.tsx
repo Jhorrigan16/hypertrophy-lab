@@ -8,13 +8,18 @@ import {
   parseISO,
   startOfDay,
 } from 'date-fns'
-import { ChevronRight, Play, RotateCcw, Trophy, Flame } from 'lucide-react'
+import { ChevronRight, Play, RotateCcw, Trophy, Flame, HeartPulse } from 'lucide-react'
 import { db } from '@/db/database'
 import { useActiveProgram, useProgramWeeks, useScheduled, useTemplates } from '@/hooks/useProgram'
 import { getActiveSession, startWorkoutFromTemplate } from '@/lib/sessions'
+import {
+  formatDistance,
+  formatDuration,
+  getActiveCardioSession,
+  recentCompletedCardio,
+} from '@/lib/cardio'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { ReadinessSheet } from '@/components/workout/ReadinessSheet'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -23,13 +28,16 @@ export function HomePage() {
   const scheduled = useScheduled(program?.id)
   const templates = useTemplates()
   const [starting, setStarting] = useState(false)
-  const [showReadiness, setShowReadiness] = useState(false)
-  const [pendingTemplateId, setPendingTemplateId] = useState<number | null>(null)
 
   const activeSession = useLiveQuery(() => getActiveSession())
+  const activeCardio = useLiveQuery(() => getActiveCardioSession())
   const completedCount = useLiveQuery(
     () => db.workoutSessions.where('status').equals('completed').count(),
   )
+  const cardioCount = useLiveQuery(
+    () => db.cardioSessions.where('status').equals('completed').count(),
+  )
+  const recentCardio = useLiveQuery(() => recentCompletedCardio(3))
   const recentPrs = useLiveQuery(async () => {
     const prs = await db.personalRecords.orderBy('achievedAt').reverse().limit(5).toArray()
     const withNames = await Promise.all(
@@ -69,28 +77,20 @@ export function HomePage() {
   const weekDone = weekScheduled.filter((s) => s.status === 'completed').length
   const weekTotal = weekScheduled.length || 4
 
-  async function begin(templateId: number, scheduledId?: number, readinessId?: number) {
+  async function begin(templateId: number, scheduledId?: number) {
     setStarting(true)
     try {
       const id = await startWorkoutFromTemplate({
         templateId,
         weekNumber: currentWeek,
         scheduledWorkoutId: scheduledId,
-        readinessEntryId: readinessId,
       })
       navigate(`/workout/${id}`)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Could not start workout')
     } finally {
       setStarting(false)
-      setShowReadiness(false)
-      setPendingTemplateId(null)
     }
-  }
-
-  function requestStart(templateId: number) {
-    setPendingTemplateId(templateId)
-    setShowReadiness(true)
   }
 
   return (
@@ -113,7 +113,7 @@ export function HomePage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                In progress
+                Lift in progress
               </p>
               <p className="font-display text-lg font-bold">{activeSession.title}</p>
               <p className="text-sm text-muted">
@@ -132,11 +132,55 @@ export function HomePage() {
         </Card>
       )}
 
+      {activeCardio && (
+        <Card className="mb-4 border-accent/40 bg-gradient-to-br from-accent/10 to-card">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                Cardio in progress
+              </p>
+              <p className="font-display text-lg font-bold">{activeCardio.title}</p>
+              <p className="text-sm text-muted">
+                {formatDuration(activeCardio.durationSeconds)} elapsed
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate(`/cardio/${activeCardio.id}`)}
+              className="!px-4 shrink-0"
+            >
+              <RotateCcw size={18} />
+              Resume
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      <div className="mb-4 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => navigate('/train?layer=lift')}
+          className="rounded-3xl border border-border bg-card px-4 py-4 text-left transition active:scale-[0.98]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Layer</p>
+          <p className="mt-1 font-display text-xl font-bold">Lift</p>
+          <p className="mt-1 text-xs text-muted">Hypertrophy sessions</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/train?layer=cardio')}
+          className="rounded-3xl border border-border bg-card px-4 py-4 text-left transition active:scale-[0.98]"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Layer</p>
+          <p className="mt-1 font-display text-xl font-bold">Cardio</p>
+          <p className="mt-1 text-xs text-muted">Run · bike · row</p>
+        </button>
+      </div>
+
       <Card className="mb-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Next workout
+              Next lift
             </p>
             <p className="mt-1 font-display text-xl font-bold">
               {nextScheduled?.template?.name ?? 'No workout scheduled'}
@@ -151,7 +195,9 @@ export function HomePage() {
           {nextScheduled?.template?.id && !activeSession && (
             <Button
               disabled={starting}
-              onClick={() => requestStart(nextScheduled.template!.id!)}
+              onClick={() =>
+                void begin(nextScheduled.template!.id!, nextScheduled.scheduled.id)
+              }
               className="!px-4 shrink-0"
             >
               <Play size={18} />
@@ -162,7 +208,7 @@ export function HomePage() {
 
         <div className="mt-4">
           <div className="mb-1.5 flex justify-between text-xs text-muted">
-            <span>Weekly progress</span>
+            <span>Weekly lift progress</span>
             <span>
               {weekDone}/{weekTotal}
             </span>
@@ -176,18 +222,25 @@ export function HomePage() {
         </div>
       </Card>
 
-      <div className="mb-4 grid grid-cols-2 gap-3">
+      <div className="mb-4 grid grid-cols-3 gap-3">
         <Card>
           <div className="flex items-center gap-2 text-muted">
             <Flame size={16} className="text-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wide">Workouts</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">Lifts</span>
           </div>
           <p className="mt-2 font-display text-3xl font-bold">{completedCount ?? 0}</p>
         </Card>
         <Card>
           <div className="flex items-center gap-2 text-muted">
+            <HeartPulse size={16} className="text-accent" />
+            <span className="text-xs font-semibold uppercase tracking-wide">Cardio</span>
+          </div>
+          <p className="mt-2 font-display text-3xl font-bold">{cardioCount ?? 0}</p>
+        </Card>
+        <Card>
+          <div className="flex items-center gap-2 text-muted">
             <Trophy size={16} className="text-success" />
-            <span className="text-xs font-semibold uppercase tracking-wide">Recent PRs</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">PRs</span>
           </div>
           <p className="mt-2 font-display text-3xl font-bold">{recentPrs?.length ?? 0}</p>
         </Card>
@@ -226,6 +279,38 @@ export function HomePage() {
         </div>
       </section>
 
+      {recentCardio && recentCardio.length > 0 && (
+        <section className="mb-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-muted">Recent cardio</h2>
+            <Link to="/progress?tab=cardio" className="text-xs font-semibold text-accent">
+              See all
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {recentCardio.map((session) => (
+              <Card key={session.id} className="!py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="font-semibold">{session.title}</p>
+                    <p className="text-xs text-muted">
+                      {session.completedAt
+                        ? format(parseISO(session.completedAt), 'MMM d')
+                        : '—'}{' '}
+                      · {formatDuration(session.durationSeconds)}
+                      {session.effort != null ? ` · Effort ${session.effort}` : ''}
+                    </p>
+                  </div>
+                  <p className="font-display text-base font-bold text-accent">
+                    {formatDistance(session.distanceMeters, 'mi')}
+                  </p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
       {recentPrs && recentPrs.length > 0 && (
         <section className="mb-4">
           <div className="mb-2 flex items-center justify-between">
@@ -260,28 +345,10 @@ export function HomePage() {
       >
         <div>
           <p className="font-display text-lg font-bold">Quick start</p>
-          <p className="text-sm text-muted">Pick any day template</p>
+          <p className="text-sm text-muted">Lift templates or cardio activities</p>
         </div>
         <ChevronRight className="text-muted" />
       </Link>
-
-      <ReadinessSheet
-        open={showReadiness}
-        onSkip={() => {
-          if (pendingTemplateId) {
-            void begin(pendingTemplateId, nextScheduled?.scheduled.id)
-          }
-        }}
-        onSave={(id) => {
-          if (pendingTemplateId) {
-            void begin(pendingTemplateId, nextScheduled?.scheduled.id, id)
-          }
-        }}
-        onClose={() => {
-          setShowReadiness(false)
-          setPendingTemplateId(null)
-        }}
-      />
     </div>
   )
 }

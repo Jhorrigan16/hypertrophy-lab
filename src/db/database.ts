@@ -12,6 +12,8 @@ import type {
   ReadinessEntry,
   UserSettings,
   AppMeta,
+  CardioActivityType,
+  CardioSession,
 } from './types'
 
 export class HypertrophyDB extends Dexie {
@@ -27,6 +29,8 @@ export class HypertrophyDB extends Dexie {
   readinessEntries!: EntityTable<ReadinessEntry, 'id'>
   userSettings!: EntityTable<UserSettings, 'id'>
   appMeta!: EntityTable<AppMeta, 'id'>
+  cardioActivityTypes!: EntityTable<CardioActivityType, 'id'>
+  cardioSessions!: EntityTable<CardioSession, 'id'>
 
   constructor() {
     super('HypertrophyLab')
@@ -44,6 +48,23 @@ export class HypertrophyDB extends Dexie {
       readinessEntries: '++id, date',
       userSettings: '++id',
       appMeta: '++id, key',
+    })
+
+    this.version(2).stores({
+      exercises: '++id, name, primaryMuscle, equipment, isCustom',
+      workoutTemplates: '++id, name, dayIndex',
+      programs: '++id, isActive, name',
+      programWeeks: '++id, programId, weekNumber, [programId+weekNumber]',
+      scheduledWorkouts: '++id, programId, plannedDate, weekNumber, status, templateId',
+      workoutSessions: '++id, status, startedAt, completedAt, templateId, programId',
+      exerciseSessions: '++id, workoutSessionId, exerciseId, order',
+      loggedSets: '++id, exerciseSessionId, isComplete, isWarmup, completedAt',
+      personalRecords: '++id, exerciseId, type, achievedAt',
+      readinessEntries: '++id, date',
+      userSettings: '++id',
+      appMeta: '++id, key',
+      cardioActivityTypes: '++id, name, modality, archived',
+      cardioSessions: '++id, status, startedAt, completedAt, activityTypeId, modality',
     })
   }
 }

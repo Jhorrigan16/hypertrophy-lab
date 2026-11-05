@@ -380,7 +380,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmDelete}
         title="Delete all data?"
-        message="This permanently erases workouts, PRs, settings, and program data on this device, then re-seeds defaults. Export a backup first."
+        message="This permanently erases workouts, cardio, PRs, settings, and program data on this device, then re-seeds defaults. Export a backup first."
         confirmLabel="Delete everything"
         danger
         onCancel={() => setConfirmDelete(false)}

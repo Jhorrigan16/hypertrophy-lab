@@ -7,6 +7,7 @@ import { ProgramPage } from '@/pages/ProgramPage'
 import { ProgressPage } from '@/pages/ProgressPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { ActiveWorkoutPage } from '@/pages/ActiveWorkoutPage'
+import { ActiveCardioPage } from '@/pages/ActiveCardioPage'
 import { ExerciseLibraryPage } from '@/pages/ExerciseLibraryPage'
 import { ExerciseDetailPage } from '@/pages/ExerciseDetailPage'
 import { ensureSeeded } from '@/db/seed'
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="exercises" element={<ExerciseLibraryPage />} />
           <Route path="exercises/:exerciseId" element={<ExerciseDetailPage />} />
           <Route path="workout/:sessionId" element={<ActiveWorkoutPage />} />
+          <Route path="cardio/:sessionId" element={<ActiveCardioPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

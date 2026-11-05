@@ -14,6 +14,7 @@ import {
   DEFAULT_REST_DEFAULTS,
   type UserSettings,
 } from './types'
+import { ensureCardioSeeded } from '@/lib/cardio'
 
 export async function isSeeded(): Promise<boolean> {
   const meta = await db.appMeta.where('key').equals('seeded').first()
@@ -27,6 +28,8 @@ export async function ensureSeeded(): Promise<void> {
     if (settingsCount === 0) {
       await seedSettings(format(new Date(), 'yyyy-MM-dd'))
     }
+    await ensureCardioSeeded()
+    await db.appMeta.put({ key: 'schemaVersion', value: '2' })
     return
   }
   await seedAll()
@@ -43,6 +46,8 @@ export async function seedAll(startDate = format(new Date(), 'yyyy-MM-dd')): Pro
       db.scheduledWorkouts,
       db.userSettings,
       db.appMeta,
+      db.cardioActivityTypes,
+      db.cardioSessions,
     ],
     async () => {
       await seedExercises()
@@ -51,8 +56,9 @@ export async function seedAll(startDate = format(new Date(), 'yyyy-MM-dd')): Pro
       await seedProgramWeeks(programId)
       await seedSchedule(programId, templateIds, startDate)
       await seedSettings(startDate)
+      await ensureCardioSeeded()
       await db.appMeta.put({ key: 'seeded', value: 'true' })
-      await db.appMeta.put({ key: 'schemaVersion', value: '1' })
+      await db.appMeta.put({ key: 'schemaVersion', value: '2' })
     },
   )
 }

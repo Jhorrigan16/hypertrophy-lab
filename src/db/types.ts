@@ -259,6 +259,42 @@ export interface AppMeta {
   value: string
 }
 
+export type CardioModality = 'run' | 'bike' | 'row' | 'other'
+
+export type CardioSessionStatus = 'in_progress' | 'completed' | 'discarded'
+
+export interface CardioActivityType {
+  id?: number
+  name: string
+  modality: CardioModality
+  /** Soft default effort 1–10 when starting a session */
+  defaultEffort: number
+  notes?: string
+  isCustom: boolean
+  archived: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CardioSession {
+  id?: number
+  activityTypeId: number
+  title: string
+  modality: CardioModality
+  status: CardioSessionStatus
+  startedAt: string
+  completedAt?: string
+  /** Elapsed moving/session time */
+  durationSeconds: number
+  /** Distance in meters; null when not tracked */
+  distanceMeters: number | null
+  /** Subjective effort 1–10 */
+  effort: number | null
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const DEFAULT_EQUIPMENT_INCREMENTS: EquipmentIncrements = {
   barbell: 5,
   dumbbell: 5,
