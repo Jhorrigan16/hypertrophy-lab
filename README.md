@@ -57,17 +57,26 @@ npm run build
 
 Output is in `dist/`. Includes service worker, web manifest, and assets.
 
+## Live site
+
+**https://hypertrophy-lab-274.netlify.app**
+
+Admin: [Netlify project](https://app.netlify.com/projects/hypertrophy-lab-274)
+
 ## Deploy on Netlify (HTTPS)
 
-1. Push this repo to GitHub.
-2. In Netlify: **Add new site → Import from Git** → select `hypertrophy-lab`.
-3. Build settings:
-   - **Build command:** `npm run build`
-   - **Publish directory:** `dist`
-4. Deploy. HTTPS is automatic on Netlify.
-5. SPA routing is handled by `public/_redirects` (`/* → /index.html 200`).
+Site is linked on Netlify (`hypertrophy-lab-274`) with:
 
-Optional `netlify.toml` is included for the same settings.
+- **Build command:** `npm run build`
+- **Publish directory:** `dist`
+- SPA fallback via `public/_redirects` and `netlify.toml` (`/* → /index.html 200`)
+
+```bash
+npm run build
+npx netlify deploy --prod --dir dist
+```
+
+GitHub continuous deploy is configured against `main` (build settings in Netlify). If automatic builds do not run, reconnect the Netlify GitHub App in project settings, or redeploy with the CLI above.
 
 ## Install on iPhone (Safari)
 
