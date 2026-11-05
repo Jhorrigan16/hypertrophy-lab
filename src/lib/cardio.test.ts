@@ -4,8 +4,12 @@ import {
   displayToMeters,
   formatDuration,
   formatPace,
+  formatPaceClock,
   metersToDisplay,
   paceSecondsPerUnit,
+  speedMph,
+  buildRunningSessionSeries,
+  buildRunningWeeklyMileage,
   ensureCardioSeeded,
   startCardioSession,
   completeCardioSession,
@@ -26,6 +30,77 @@ describe('cardio helpers', () => {
     expect(formatDuration(3661)).toBe('1:01:01')
     expect(paceSecondsPerUnit(5000, 1500, 'km')).toBe(300)
     expect(formatPace(5000, 1500, 'km')).toBe('5:00/km')
+    expect(formatPaceClock(510)).toBe('8:30')
+  })
+
+  it('computes mph from distance and duration', () => {
+    // 1 mile in 10 minutes → 6 mph
+    expect(Math.round((speedMph(1609.344, 600) ?? 0) * 100) / 100).toBe(6)
+    expect(speedMph(null, 600)).toBeNull()
+    expect(speedMph(1609.344, 0)).toBeNull()
+  })
+
+  it('builds running chart series from real sessions only', () => {
+    const series = buildRunningSessionSeries([
+      {
+        id: 1,
+        status: 'completed',
+        modality: 'run',
+        completedAt: '2026-03-02T12:00:00.000Z',
+        distanceMeters: 3218.688,
+        durationSeconds: 1200,
+        title: 'Easy Run',
+      },
+      {
+        id: 2,
+        status: 'completed',
+        modality: 'bike',
+        completedAt: '2026-03-03T12:00:00.000Z',
+        distanceMeters: 10000,
+        durationSeconds: 1800,
+        title: 'Bike',
+      },
+      {
+        id: 3,
+        status: 'completed',
+        modality: 'run',
+        completedAt: '2026-03-01T12:00:00.000Z',
+        distanceMeters: null,
+        durationSeconds: 900,
+        title: 'Easy Run',
+      },
+    ])
+    expect(series).toHaveLength(1)
+    expect(series[0]?.miles).toBe(2)
+    expect(series[0]?.paceSecPerMile).toBe(600)
+    expect(series[0]?.mph).toBe(6)
+  })
+
+  it('aggregates weekly running mileage', () => {
+    const weeks = buildRunningWeeklyMileage(
+      [
+        {
+          status: 'completed',
+          modality: 'run',
+          completedAt: '2026-03-02T12:00:00.000Z',
+          distanceMeters: 1609.344,
+        },
+        {
+          status: 'completed',
+          modality: 'run',
+          completedAt: '2026-03-03T12:00:00.000Z',
+          distanceMeters: 1609.344,
+        },
+        {
+          status: 'completed',
+          modality: 'bike',
+          completedAt: '2026-03-03T12:00:00.000Z',
+          distanceMeters: 5000,
+        },
+      ],
+      () => '2026-03-02',
+    )
+    expect(weeks).toEqual([{ weekStart: '2026-03-02', miles: 2, sessions: 2 }])
   })
 })
 
