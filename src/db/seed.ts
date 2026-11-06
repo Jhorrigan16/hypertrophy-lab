@@ -1,5 +1,5 @@
 import { addWeeks, format, parseISO, startOfWeek, addDays } from 'date-fns'
-import { SEED_EXERCISES, withTimestamps } from '@/data/exercises'
+import { ALL_SEED_EXERCISES, withTimestamps } from '@/data/exercises'
 import {
   PROGRAM_DAYS,
   WEEK_PHASES,
@@ -28,11 +28,26 @@ export async function ensureSeeded(): Promise<void> {
     if (settingsCount === 0) {
       await seedSettings(format(new Date(), 'yyyy-MM-dd'))
     }
+    await ensureExerciseLibraryExpanded()
     await ensureCardioSeeded()
-    await db.appMeta.put({ key: 'schemaVersion', value: '2' })
+    await db.appMeta.put({ key: 'schemaVersion', value: '3' })
     return
   }
   await seedAll()
+}
+
+/** Additive: insert any default library exercises missing by name. Never deletes. */
+export async function ensureExerciseLibraryExpanded(): Promise<number> {
+  const existing = await db.exercises.toArray()
+  const names = new Set(existing.map((e) => e.name.toLowerCase()))
+  const missing = ALL_SEED_EXERCISES.filter((e) => !names.has(e.name.toLowerCase()))
+  if (missing.length === 0) {
+    await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '3' })
+    return 0
+  }
+  await db.exercises.bulkAdd(missing.map(withTimestamps))
+  await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '3' })
+  return missing.length
 }
 
 export async function seedAll(startDate = format(new Date(), 'yyyy-MM-dd')): Promise<void> {
@@ -51,6 +66,7 @@ export async function seedAll(startDate = format(new Date(), 'yyyy-MM-dd')): Pro
     ],
     async () => {
       await seedExercises()
+      await ensureExerciseLibraryExpanded()
       const templateIds = await seedTemplates()
       const programId = await seedProgram(templateIds, startDate)
       await seedProgramWeeks(programId)
@@ -58,7 +74,8 @@ export async function seedAll(startDate = format(new Date(), 'yyyy-MM-dd')): Pro
       await seedSettings(startDate)
       await ensureCardioSeeded()
       await db.appMeta.put({ key: 'seeded', value: 'true' })
-      await db.appMeta.put({ key: 'schemaVersion', value: '2' })
+      await db.appMeta.put({ key: 'schemaVersion', value: '3' })
+      await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '3' })
     },
   )
 }
@@ -66,7 +83,7 @@ export async function seedAll(startDate = format(new Date(), 'yyyy-MM-dd')): Pro
 async function seedExercises(): Promise<Map<string, number>> {
   const existing = await db.exercises.count()
   if (existing === 0) {
-    await db.exercises.bulkAdd(SEED_EXERCISES.map(withTimestamps))
+    await db.exercises.bulkAdd(ALL_SEED_EXERCISES.map(withTimestamps))
   }
   const all = await db.exercises.toArray()
   return new Map(all.map((e) => [e.name, e.id!]))

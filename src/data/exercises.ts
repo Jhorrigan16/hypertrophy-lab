@@ -1,9 +1,13 @@
 import type { Exercise } from '@/db/types'
+import { EXTRA_SEED_EXERCISES } from './extraExercises'
 
 type SeedExercise = Omit<Exercise, 'id' | 'createdAt' | 'updatedAt' | 'imageBlob'>
 
 const now = () => new Date().toISOString()
 
+export type { SeedExercise }
+
+/** Original program library (25). Prefer EXTRA_SEED_EXERCISES for additive expansions. */
 export const SEED_EXERCISES: SeedExercise[] = [
   {
     name: 'Incline Smith Machine Press',
@@ -461,3 +465,18 @@ export function withTimestamps(exercise: SeedExercise): Exercise {
   const ts = now()
   return { ...exercise, createdAt: ts, updatedAt: ts }
 }
+
+/** Full default library = original seeds + additive expansion (deduped by name). */
+export const ALL_SEED_EXERCISES: SeedExercise[] = (() => {
+  const seen = new Set<string>()
+  const out: SeedExercise[] = []
+  for (const ex of [...SEED_EXERCISES, ...EXTRA_SEED_EXERCISES]) {
+    const key = ex.name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(ex)
+  }
+  return out
+})()
+
+export { EXTRA_SEED_EXERCISES }
