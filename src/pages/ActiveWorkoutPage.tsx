@@ -8,7 +8,6 @@ import {
   Pause,
   Play,
   Plus,
-  Timer,
 } from 'lucide-react'
 import { db } from '@/db/database'
 import { useSettings } from '@/hooks/useSettings'
@@ -21,11 +20,12 @@ import {
   pauseSession,
   resumeSession,
   sessionElapsedMs,
+  switchExerciseInSession,
 } from '@/lib/sessions'
 import { formatWeight } from '@/lib/units'
 import { formatTimer } from '@/lib/restTimer'
 import { SetRow } from '@/components/workout/SetRow'
-import { RestTimer } from '@/components/workout/RestTimer'
+import { ExerciseSwitcher } from '@/components/workout/ExerciseSwitcher'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Button } from '@/components/ui/Button'
 
@@ -44,8 +44,6 @@ export function ActiveWorkoutPage() {
 
   const [bundle, setBundle] = useState<Awaited<ReturnType<typeof loadSessionBundle>>>(null)
   const [expanded, setExpanded] = useState<number | null>(null)
-  const [restOpen, setRestOpen] = useState(false)
-  const [restSeconds, setRestSeconds] = useState(90)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -187,6 +185,21 @@ export function ActiveWorkoutPage() {
                 />
               </button>
 
+              {/* Always visible so athletes can swap as soon as the workout starts */}
+              {exercise?.id != null && (
+                <div className="border-t border-border px-3 py-3">
+                  <ExerciseSwitcher
+                    currentExerciseId={exercise.id}
+                    preferredAlternatives={exercise.alternatives}
+                    onSwitch={(nextId) => {
+                      void switchExerciseInSession(exerciseSession.id!, nextId).then(
+                        reload,
+                      )
+                    }}
+                  />
+                </div>
+              )}
+
               {open && (
                 <div className="space-y-3 border-t border-border px-3 py-3">
                   {sets.map((set) => (
@@ -200,8 +213,6 @@ export function ActiveWorkoutPage() {
                       isUnilateral={exerciseSession.isUnilateral}
                       onCompleted={() => {
                         void reload()
-                        setRestSeconds(exerciseSession.restSeconds)
-                        setRestOpen(true)
                       }}
                     />
                   ))}
@@ -224,16 +235,6 @@ export function ActiveWorkoutPage() {
                     >
                       <Plus size={16} /> Set
                     </Button>
-                    <Button
-                      variant="ghost"
-                      className="!px-3 !py-3"
-                      onClick={() => {
-                        setRestSeconds(exerciseSession.restSeconds)
-                        setRestOpen(true)
-                      }}
-                    >
-                      <Timer size={18} />
-                    </Button>
                   </div>
                   <textarea
                     className="w-full rounded-2xl border border-border bg-bg px-3 py-2.5 text-sm outline-none focus:border-accent"
@@ -252,12 +253,6 @@ export function ActiveWorkoutPage() {
           )
         })}
       </div>
-
-      <RestTimer
-        open={restOpen}
-        seconds={restSeconds}
-        onClose={() => setRestOpen(false)}
-      />
 
       <ConfirmDialog
         open={confirmDiscard}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
 import type { LoggedSet, WeightUnit } from '@/db/types'
-import { toDisplayWeight, toStorageWeight } from '@/lib/units'
+import { toDisplayWeight, toStorageWeight, formatWeight } from '@/lib/units'
 import { completeSet } from '@/lib/sessions'
 
 interface Props {
@@ -33,6 +33,7 @@ export function SetRow({
   const [saving, setSaving] = useState(false)
 
   async function handleComplete() {
+    if (set.isComplete) return
     setSaving(true)
     try {
       await completeSet({
@@ -49,17 +50,32 @@ export function SetRow({
     }
   }
 
+  if (set.isComplete) {
+    return (
+      <div className="rounded-2xl border border-success/40 bg-success/5 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+            {set.isWarmup ? 'Warm-up' : 'Set'} {set.setNumber} · Done
+          </p>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
+            <Check size={14} strokeWidth={2.5} /> Logged
+          </span>
+        </div>
+        <p className="mt-2 font-display text-lg font-bold tabular-nums">
+          {formatWeight(set.weight, unit)} × {set.reps}
+          {set.rir != null ? ` · RIR ${set.rir}` : ''}
+          {set.isUnilateralSide ? ` · ${set.isUnilateralSide}` : ''}
+        </p>
+        {set.notes ? <p className="mt-1 text-sm text-muted">{set.notes}</p> : null}
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={[
-        'rounded-2xl border p-3',
-        set.isComplete ? 'border-success/40 bg-success/5' : 'border-border bg-card-elevated',
-      ].join(' ')}
-    >
+    <div className="rounded-2xl border border-border bg-card-elevated p-3">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           {set.isWarmup ? 'Warm-up' : 'Set'} {set.setNumber}
-          {set.isComplete ? ' · Done' : ''}
         </p>
         <p className="text-[11px] text-muted">
           Target {targetRepMin}–{targetRepMax}
@@ -137,7 +153,7 @@ export function SetRow({
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-4 text-base font-bold text-white shadow-[0_8px_24px_rgba(255,116,51,0.28)] active:scale-[0.98] disabled:opacity-50"
       >
         <Check size={20} strokeWidth={2.5} />
-        {set.isComplete ? 'Update Set' : 'Complete Set'}
+        Complete Set
       </button>
     </div>
   )

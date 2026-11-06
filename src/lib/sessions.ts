@@ -460,6 +460,68 @@ export async function updateTemplateExercise(
   })
 }
 
+/**
+ * Swap the exercise for an in-progress slot.
+ * Keeps completed sets; refreshes suggestion / defaults for the new movement.
+ * Does not mutate program templates or other sessions.
+ */
+export async function switchExerciseInSession(
+  exerciseSessionId: number,
+  newExerciseId: number,
+): Promise<void> {
+  const es = await db.exerciseSessions.get(exerciseSessionId)
+  if (!es) throw new Error('Exercise session not found')
+  if (es.exerciseId === newExerciseId) return
+
+  const exercise = await db.exercises.get(newExerciseId)
+  if (!exercise) throw new Error('Exercise not found')
+
+  const settings = await getSettings()
+  const session = await db.workoutSessions.get(es.workoutSessionId)
+  const week =
+    session?.programId != null && session.weekNumber != null
+      ? await getProgramWeek(session.programId, session.weekNumber)
+      : undefined
+
+  const previous = await getPreviousWorkingSets(newExerciseId)
+  const suggestion = suggestNextWeight({
+    previousWorkingSets: previous,
+    repMin: es.targetRepMin,
+    repMax: es.targetRepMax,
+    primaryMuscle: exercise.primaryMuscle,
+    equipment: exercise.equipment,
+    increments: settings.equipmentIncrements,
+    prefs: settings.progressionPrefs,
+    week: week ?? {
+      allowAutoLoadIncrease: true,
+      phase: 'accumulation',
+      targetRirMin: 2,
+      targetRirMax: 2,
+    },
+    targetRirMax: week?.targetRirMax,
+  })
+
+  const restSeconds =
+    exercise.defaultRestSeconds ??
+    defaultRestForExercise(exercise.isCompound, settings.restDefaults)
+
+  await db.exerciseSessions.update(exerciseSessionId, {
+    exerciseId: newExerciseId,
+    suggestedWeight: suggestion.suggestedWeight ?? undefined,
+    restSeconds,
+    isUnilateral: exercise.isUnilateral,
+  })
+
+  // Update incomplete working/warmup slots to the new suggested load; leave completed sets alone
+  const sets = await db.loggedSets.where('exerciseSessionId').equals(exerciseSessionId).toArray()
+  const nextWeight = suggestion.suggestedWeight ?? 0
+  await Promise.all(
+    sets
+      .filter((s) => !s.isComplete)
+      .map((s) => db.loggedSets.update(s.id!, { weight: nextWeight })),
+  )
+}
+
 export function sessionElapsedMs(session: WorkoutSession, now = Date.now()): number {
   const start = new Date(session.startedAt).getTime()
   let paused = session.totalPausedMs
