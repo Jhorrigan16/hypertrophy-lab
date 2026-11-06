@@ -105,6 +105,10 @@ export function HomePage() {
         <p className="mt-1 text-sm text-muted">
           Week {currentWeek}
           {weekMeta ? ` · ${weekMeta.phaseLabel}` : ''}
+          {' · '}
+          <Link to="/program" className="font-semibold text-accent">
+            View program
+          </Link>
         </p>
       </header>
 

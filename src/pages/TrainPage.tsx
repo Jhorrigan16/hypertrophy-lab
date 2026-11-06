@@ -144,16 +144,28 @@ export function TrainPage() {
 
       {layer === 'lift' && (
         <>
-          <Link
-            to="/exercises"
-            className="mb-4 flex items-center gap-3 rounded-3xl border border-border bg-card px-4 py-3.5"
-          >
-            <BookOpen className="text-accent" size={20} />
-            <div className="flex-1">
-              <p className="font-semibold">Exercise library</p>
-              <p className="text-xs text-muted">Search, cues, alternatives, custom</p>
-            </div>
-          </Link>
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <Link
+              to="/program"
+              className="flex items-center gap-2 rounded-3xl border border-border bg-card px-3 py-3.5"
+            >
+              <ClipboardList className="shrink-0 text-accent" size={20} />
+              <div className="min-w-0">
+                <p className="font-semibold leading-tight">Program</p>
+                <p className="text-[11px] text-muted">Schedule & phases</p>
+              </div>
+            </Link>
+            <Link
+              to="/exercises"
+              className="flex items-center gap-2 rounded-3xl border border-border bg-card px-3 py-3.5"
+            >
+              <BookOpen className="shrink-0 text-accent" size={20} />
+              <div className="min-w-0">
+                <p className="font-semibold leading-tight">Exercises</p>
+                <p className="text-[11px] text-muted">Cues & library</p>
+              </div>
+            </Link>
+          </div>
 
           <div className="space-y-3">
             {templates?.map((t) => {
