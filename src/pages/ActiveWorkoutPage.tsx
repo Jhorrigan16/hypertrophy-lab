@@ -32,7 +32,6 @@ import {
   workoutWorkingProgress,
 } from '@/lib/workoutUx'
 import { SetRow } from '@/components/workout/SetRow'
-import { RestTimer } from '@/components/workout/RestTimer'
 import { ExerciseSwitcher } from '@/components/workout/ExerciseSwitcher'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Button } from '@/components/ui/Button'
@@ -52,8 +51,6 @@ export function ActiveWorkoutPage() {
 
   const [bundle, setBundle] = useState<Awaited<ReturnType<typeof loadSessionBundle>>>(null)
   const [exerciseIndex, setExerciseIndex] = useState(0)
-  const [restOpen, setRestOpen] = useState(false)
-  const [restSeconds, setRestSeconds] = useState(90)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [showCues, setShowCues] = useState(false)
@@ -135,8 +132,6 @@ export function ActiveWorkoutPage() {
   async function onSetCompleted() {
     setFlash(true)
     window.setTimeout(() => setFlash(false), 450)
-    setRestSeconds(exerciseSession.restSeconds)
-    setRestOpen(true)
     await reload()
     // After reload, advance exercise if all working sets done on current
     const fresh = await loadSessionBundle(id)
@@ -375,12 +370,6 @@ export function ActiveWorkoutPage() {
           </Button>
         </div>
       </div>
-
-      <RestTimer
-        open={restOpen}
-        seconds={restSeconds}
-        onClose={() => setRestOpen(false)}
-      />
 
       <ConfirmDialog
         open={confirmDiscard}
