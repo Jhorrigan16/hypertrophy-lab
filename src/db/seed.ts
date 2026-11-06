@@ -42,11 +42,11 @@ export async function ensureExerciseLibraryExpanded(): Promise<number> {
   const names = new Set(existing.map((e) => e.name.toLowerCase()))
   const missing = ALL_SEED_EXERCISES.filter((e) => !names.has(e.name.toLowerCase()))
   if (missing.length === 0) {
-    await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '3' })
+    await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '4' })
     return 0
   }
   await db.exercises.bulkAdd(missing.map(withTimestamps))
-  await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '3' })
+  await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '4' })
   return missing.length
 }
 
@@ -75,7 +75,7 @@ export async function seedAll(startDate = format(new Date(), 'yyyy-MM-dd')): Pro
       await ensureCardioSeeded()
       await db.appMeta.put({ key: 'seeded', value: 'true' })
       await db.appMeta.put({ key: 'schemaVersion', value: '3' })
-      await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '3' })
+      await db.appMeta.put({ key: 'exerciseLibraryVersion', value: '4' })
     },
   )
 }

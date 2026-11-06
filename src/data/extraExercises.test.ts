@@ -18,18 +18,22 @@ const PRIMARY_GROUPS = [
 ] as const
 
 describe('extra exercise library', () => {
-  it('adds exactly three new exercises per used primary muscle group', () => {
-    expect(EXTRA_SEED_EXERCISES).toHaveLength(30)
+  it('adds six exercises per used primary muscle group across expansions', () => {
+    expect(EXTRA_SEED_EXERCISES).toHaveLength(60)
     for (const group of PRIMARY_GROUPS) {
       const count = EXTRA_SEED_EXERCISES.filter((e) => e.primaryMuscle === group).length
-      expect(count, group).toBe(3)
+      expect(count, group).toBe(6)
     }
   })
 
-  it('does not collide with original seed names', () => {
+  it('does not collide with original seed names or itself', () => {
     const original = new Set(SEED_EXERCISES.map((e) => e.name.toLowerCase()))
+    const seen = new Set<string>()
     for (const ex of EXTRA_SEED_EXERCISES) {
-      expect(original.has(ex.name.toLowerCase())).toBe(false)
+      const key = ex.name.toLowerCase()
+      expect(original.has(key)).toBe(false)
+      expect(seen.has(key)).toBe(false)
+      seen.add(key)
     }
   })
 
